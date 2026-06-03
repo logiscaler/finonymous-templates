@@ -2,14 +2,14 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
 Description: >
-  Finonymous — customer-side FOUNDATIONAL stack. Deploy ONCE in your AWS account
+  Finonymous -- customer-side FOUNDATIONAL stack. Deploy ONCE in your AWS account
   to grant Finonymous the access it needs and to install the capability platform
   (manifest-watcher) that picks up new FinOps capabilities over time.
 
   Deploy region: MUST be us-east-1. AWS Data Exports (CUR v2) has a single
   control-plane endpoint in us-east-1 (bcm-data-exports.us-east-1.api.aws per
   AWS endpoint registry); the AWS::BCMDataExports::Export resource will fail in
-  any other region. The S3 bucket is co-located here too — our ingestion Lambda
+  any other region. The S3 bucket is co-located here too -- our ingestion Lambda
   in ap-southeast-2 reads cross-region (~$0.06/customer/month for 3GB; negligible).
 
   Trust model (per CLAUDE.md "least-privilege always", line 156):
@@ -21,7 +21,7 @@ Description: >
       update the *code* of Lambda functions whose execution role already exists
       in this stack AND whose capability id is listed in EnabledCapabilities.
       Adding a new capability is an explicit CFN parameter update by the customer
-      admin — the watcher just notifies via SNS that an approval is pending.
+      admin -- the watcher just notifies via SNS that an approval is pending.
     - Manifest authenticity: TLS to platform.finonymous.com.au (DNS in Route53
       in 762233727016, ACM cert pinned) + sha256 verification of downloaded code
       against the value in the signed manifest. RSA signature verification via
@@ -37,7 +37,7 @@ Description: >
        schedule and reads new manifest objects from the CUR bucket.
 
 # ---------------------------------------------------------------------------
-# Parameters — everything the customer needs to think about, with explanations.
+# Parameters -- everything the customer needs to think about, with explanations.
 # ---------------------------------------------------------------------------
 Parameters:
   FinonymousPlatformAccountId:
@@ -68,7 +68,7 @@ Parameters:
     AllowedPattern: '^[A-Za-z0-9_-]+$'
     Description: >
       Per-customer secret shared between Finonymous and your account. Defeats the
-      confused-deputy attack — even if a Finonymous role is somehow assumed by an
+      confused-deputy attack -- even if a Finonymous role is somehow assumed by an
       unintended actor, they cannot assume your CUR-read role without this value.
       Generate a fresh 32+ char random string (e.g., `openssl rand -base64 48 |
       tr -d '/+=' | head -c 64`). Your Finonymous account manager stores the
@@ -89,7 +89,7 @@ Parameters:
        * ExistingBucketNewExport: you have an S3 bucket you want CUR to write
          to (e.g., a central audit-data bucket) but no CUR v2 export yet. This
          stack creates the export and the cross-account role. YOU must
-         manually append a statement to that bucket's policy — see the
+         manually append a statement to that bucket's policy -- see the
          RequiredBucketPolicyStatement output for the exact JSON.
        * ExistingBucketAndExport: you already run CUR v2 for your own
          analytics. This stack creates ONLY the cross-account read role
@@ -121,7 +121,7 @@ Parameters:
       Comma-separated list of Finonymous capability ids you have approved for
       this account. Only capabilities listed here are *enabled* in SSM; the
       manifest-watcher will refuse to update code for anything not on this list.
-      Adding a new capability is a CFN stack update — the watcher cannot grant
+      Adding a new capability is a CFN stack update -- the watcher cannot grant
       itself new permissions or enable new capabilities. Default enables
       'cur-ingestion' (which runs on the Finonymous platform side via the
       cross-account role; no in-customer Lambda for it during trial).
@@ -143,11 +143,11 @@ Parameters:
       plenty for a code-update poller; more frequent only adds noise. Examples:
       'rate(24 hours)', 'cron(0 6 * * ? *)'.
       (Named with the 'Expression' suffix to avoid a CFN name-collision with
-      the AWS::Events::Rule resource of the same family below — !Ref must be
+      the AWS::Events::Rule resource of the same family below -- !Ref must be
       unambiguous.)
 
 # ---------------------------------------------------------------------------
-# Conditions — drive the BYO bucket modes. CFN evaluates these once per stack
+# Conditions -- drive the BYO bucket modes. CFN evaluates these once per stack
 # create/update, so resources gated by them are either created or skipped.
 # ---------------------------------------------------------------------------
 Conditions:
@@ -161,7 +161,7 @@ Conditions:
     - !Equals [!Ref DeploymentMode, ExistingBucketNewExport]
 
   # True when the customer must paste a statement into their own bucket policy.
-  # Only when we WRITE the export but DON'T own the bucket — otherwise either
+  # Only when we WRITE the export but DON'T own the bucket -- otherwise either
   # the customer already wired their policy or we did it ourselves.
   EmitBucketPolicySnippet: !Equals [!Ref DeploymentMode, ExistingBucketNewExport]
 
@@ -171,7 +171,7 @@ Conditions:
 Resources:
 
   # -------------------------------------------------------------------------
-  # S3 bucket — destination for the AWS::BCMDataExports::Export below.
+  # S3 bucket -- destination for the AWS::BCMDataExports::Export below.
   # Encrypted with AWS-managed SSE-S3, versioning ON (cheap insurance against
   # accidental delete; CUR objects are append-mostly and small), public access
   # fully blocked, and a 90-day lifecycle to noncurrent-expiration so old
@@ -180,7 +180,7 @@ Resources:
   CurBucket:
     Type: AWS::S3::Bucket
     Condition: CreateBucket         # Only when DeploymentMode = NewBucketAndExport.
-    DeletionPolicy: Retain          # Customer data — never auto-delete on stack tear-down.
+    DeletionPolicy: Retain          # Customer data -- never auto-delete on stack tear-down.
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub 'finonymous-cur-${AWS::AccountId}-${AWS::Region}'
@@ -206,10 +206,10 @@ Resources:
         - { Key: Capability, Value: cur-ingestion }
 
   # -------------------------------------------------------------------------
-  # Bucket policy — grants ONLY the AWS Billing service principal what it
+  # Bucket policy -- grants ONLY the AWS Billing service principal what it
   # needs to write CUR objects. NO anonymous, NO wildcards, NO additional
   # principals. The cross-account read role gets its access via the role's
-  # OWN policy (below), not via this bucket policy — keeps the bucket policy
+  # OWN policy (below), not via this bucket policy -- keeps the bucket policy
   # minimal and auditable.
   # -------------------------------------------------------------------------
   CurBucketPolicy:
@@ -239,7 +239,7 @@ Resources:
                 aws:SourceArn: !Sub 'arn:aws:cur:us-east-1:${AWS::AccountId}:definition/*'
 
   # -------------------------------------------------------------------------
-  # CUR v2 / AWS Data Exports — parquet, daily cadence, OVERWRITE_REPORT so we
+  # CUR v2 / AWS Data Exports -- parquet, daily cadence, OVERWRITE_REPORT so we
   # always read a single consistent file per cycle rather than re-processing
   # accumulating partials. Query is the canonical "everything from CUR 2.0",
   # no projection (the platform schema-maps to cur_rows post-ingest).
@@ -250,12 +250,12 @@ Resources:
     # Implicit dependency on CurBucket via !If/!Ref below (when CreateBucket is true).
     # No explicit DependsOn on CurBucketPolicy because (a) when CreateBucket is true,
     # the policy is created in parallel and CUR v2 writes only happen later on the
-    # billing-cycle boundary — by then the policy is in place; (b) when CreateBucket
+    # billing-cycle boundary -- by then the policy is in place; (b) when CreateBucket
     # is false, CurBucketPolicy doesn't exist (the customer manages their own).
     Properties:
       Export:
         Name: !Sub 'finonymous-cur-${AWS::AccountId}'
-        Description: 'Cost & Usage Report v2 — consumed by Finonymous platform.'
+        Description: 'Cost & Usage Report v2 -- consumed by Finonymous platform.'
         DataQuery:
           QueryStatement: 'SELECT * FROM COST_AND_USAGE_REPORT'
           TableConfigurations:
@@ -282,7 +282,7 @@ Resources:
         - { Key: Capability, Value: cur-ingestion }
 
   # -------------------------------------------------------------------------
-  # Cross-account CUR-read role — assumed by the SPECIFIC Finonymous Lambda
+  # Cross-account CUR-read role -- assumed by the SPECIFIC Finonymous Lambda
   # execution role (param FinonymousIngestionRoleArn), gated by ExternalId.
   # Inline policy is intentionally tiny: read objects under cur-export/ +
   # list the bucket with that prefix filter. No s3:*, no Resource:"*".
@@ -332,7 +332,7 @@ Resources:
         - { Key: Capability, Value: cur-ingestion }
 
   # -------------------------------------------------------------------------
-  # Shared finonymous-execution-role — the future in-customer capability
+  # Shared finonymous-execution-role -- the future in-customer capability
   # Lambdas (idle-ec2, orphaned-ebs, tagging-compliance, etc.) all assume this
   # role. Right now it has ONLY the bare execution-role permissions (CloudWatch
   # Logs + the SNS topic for posting findings to the customer admin).
@@ -340,7 +340,7 @@ Resources:
   # When a capability is added (CFN parameter update by the customer), a new
   # policy is attached here scoped to that capability's exact need (e.g.,
   # ec2:DescribeInstances for idle-ec2). The MANIFEST WATCHER CANNOT attach
-  # policies — that's a CFN-time operation the customer signs off on.
+  # policies -- that's a CFN-time operation the customer signs off on.
   # -------------------------------------------------------------------------
   FinonymousExecutionRole:
     Type: AWS::IAM::Role
@@ -371,7 +371,7 @@ Resources:
         - { Key: Service, Value: finonymous }
 
   # -------------------------------------------------------------------------
-  # SNS topic — manifest-watcher uses this to notify the customer admin when
+  # SNS topic -- manifest-watcher uses this to notify the customer admin when
   # a pending-approval capability appears in the manifest. Customer
   # subscribes their email / Slack / PagerDuty endpoint via the console.
   # -------------------------------------------------------------------------
@@ -385,7 +385,7 @@ Resources:
         - { Key: Service, Value: finonymous }
 
   # -------------------------------------------------------------------------
-  # SSM Parameter — capability registry. One parameter holds the enabled set
+  # SSM Parameter -- capability registry. One parameter holds the enabled set
   # (CSV from the EnabledCapabilities CFN parameter); the watcher writes
   # per-capability sub-parameters under /finonymous/capabilities/<id>/state
   # at runtime to track applied versions.
@@ -401,13 +401,13 @@ Resources:
         Service: finonymous
 
   # -------------------------------------------------------------------------
-  # Manifest watcher — execution role.
+  # Manifest watcher -- execution role.
   #
   # LEAST-PRIVILEGE per CLAUDE.md. The watcher can: read the enabled-capabilities
   # SSM parameter, write per-capability state SSM parameters under the same
   # path prefix, publish to the notifications SNS topic, and update Lambda
   # function code for functions tagged Service=finonymous AND Capability=<one of
-  # the enabled ids> (the IAM condition below enforces this — without it, this
+  # the enabled ids> (the IAM condition below enforces this -- without it, this
   # role could update any Lambda in the account). The watcher CANNOT create
   # functions, CANNOT attach policies, CANNOT modify IAM. It can only update
   # the code of functions that already exist in this stack and are tagged as
@@ -458,7 +458,7 @@ Resources:
                     aws:ResourceTag/Service: finonymous
 
   # -------------------------------------------------------------------------
-  # Manifest watcher — Lambda. Inline Python; small enough to ship in the CFN
+  # Manifest watcher -- Lambda. Inline Python; small enough to ship in the CFN
   # ZipFile property (~4KB limit; we're well under). Uses ONLY the runtime's
   # built-in modules (urllib, json, boto3) so no Lambda layer to manage.
   #
@@ -563,7 +563,7 @@ Resources:
                       f'  version:     {version}\n'
                       f'  description: {description}\n\n'
                       f'To enable, re-deploy the Finonymous foundational CFN stack with EnabledCapabilities '
-                      f'including "{capability_id}". The manifest-watcher cannot enable capabilities on its own — '
+                      f'including "{capability_id}". The manifest-watcher cannot enable capabilities on its own -- '
                       f'all permission grants go through CFN review.'
                   ),
               )
@@ -574,11 +574,11 @@ Resources:
                   manifest = fetch_manifest()
               except HTTPError as e:
                   if e.code == 404:
-                      print('manifest not yet hosted (404) — exiting cleanly')
+                      print('manifest not yet hosted (404) -- exiting cleanly')
                       return {'status': 'no_manifest_yet'}
                   raise
               except URLError as e:
-                  print(f'manifest fetch failed: {e} — exiting cleanly')
+                  print(f'manifest fetch failed: {e} -- exiting cleanly')
                   return {'status': 'fetch_failed'}
 
               enabled = get_enabled_capability_ids()
@@ -587,7 +587,7 @@ Resources:
               for entry in manifest.get('lambdas', []):
                   cid = entry['id']
                   if cid not in enabled:
-                      # New capability — notify admin once. Idempotent: skip if
+                      # New capability -- notify admin once. Idempotent: skip if
                       # we've already recorded a "notified" marker for this version.
                       marker = applied_version(f'{cid}/pending-notified')
                       if marker != entry['version']:
@@ -596,7 +596,7 @@ Resources:
                           actions.append({'capability': cid, 'action': 'notified_pending', 'version': entry['version']})
                       continue
 
-                  # Enabled — bring code up to date.
+                  # Enabled -- bring code up to date.
                   current = applied_version(cid)
                   if current == entry['version']:
                       continue
@@ -604,10 +604,10 @@ Resources:
                   try:
                       awslambda.get_function(FunctionName=fn_name)
                   except awslambda.exceptions.ResourceNotFoundException:
-                      # Capability enabled in SSM but no Lambda exists yet — that means
+                      # Capability enabled in SSM but no Lambda exists yet -- that means
                       # the customer hasn't re-deployed the CFN to add the function
                       # itself. Log and skip; the next CFN deploy will create it.
-                      print(f'function {fn_name} not deployed yet — skipping')
+                      print(f'function {fn_name} not deployed yet -- skipping')
                       continue
                   zip_bytes, sha = download_and_hash(entry['code_url'])
                   if sha != entry['code_sha256']:
@@ -623,7 +623,7 @@ Resources:
         - { Key: Component, Value: manifest-watcher }
 
   # -------------------------------------------------------------------------
-  # EventBridge schedule — fires the watcher daily.
+  # EventBridge schedule -- fires the watcher daily.
   # -------------------------------------------------------------------------
   ManifestWatcherSchedule:
     Type: AWS::Events::Rule
@@ -645,7 +645,7 @@ Resources:
       SourceArn: !GetAtt ManifestWatcherSchedule.Arn
 
 # ---------------------------------------------------------------------------
-# Outputs — what the customer needs to share with Finonymous to complete
+# Outputs -- what the customer needs to share with Finonymous to complete
 # onboarding, plus a few diagnostics.
 # ---------------------------------------------------------------------------
 Outputs:
